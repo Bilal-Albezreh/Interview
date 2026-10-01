@@ -165,7 +165,7 @@ It returns `{ question, earlier, answer }`, where `answer` is the earlier questi
 
 **On this export,** 9 of the 20 waiting questions have an earlier answer. For example, the Sep 27 landing-page question points to the same question asked on Sep 24, whose first real answer came at 01:57 UTC on Sep 25. A more recent answered question that shares "handle" and "members" with the offboarding question is correctly left out.
 
-**In the demo,** a note under the waiting question reads "Answered before on Sep 25, in a thread from Sep 24", followed by the quoted answer and a **Copy reply** button. The button copies a short, friendly reply quoting that answer. The reply names no one, so pasting it can't ping anybody, and nothing is posted automatically.
+**In the demo,** a note under the waiting question reads "Answered before on Sep 24" (the date of the earlier thread, which is how you'd find it in Slack), followed by the quoted answer and a **Copy reply** button. The button copies a short, friendly reply quoting that answer. The reply names no one, so pasting it can't ping anybody, and nothing is posted automatically.
 
 **Limits.** It matches the question, not whether the earlier answer is right. In this export, replies are paired with questions at random, so some earlier "answers" don't fit; "Are polls anonymous by default?" points to "What worked best for us was a weekly prompt from the team." That's why it's a reply for an admin to read before pasting, not an automatic one.
 

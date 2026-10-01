@@ -6,11 +6,9 @@ export function byQuestion(matches: AnsweredBefore[]): Record<string, AnsweredBe
   return Object.fromEntries(matches.map((m) => [m.question.ts, m]));
 }
 
-/** Where the earlier answer is from: "Answered before on Sep 25, in a thread from Sep 24". */
+/** "Answered before on Sep 24": the date of the earlier thread, which is how you'd find it in Slack. */
 export function answeredBeforeLabel(match: AnsweredBefore): string {
-  const answered = formatShortDate(match.answer.ts);
-  const asked = formatShortDate(match.earlier.ts);
-  return answered === asked ? `Answered before on ${answered}` : `Answered before on ${answered}, in a thread from ${asked}`;
+  return `Answered before on ${formatShortDate(match.earlier.ts)}`;
 }
 
 /**

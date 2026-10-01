@@ -11,12 +11,15 @@ const match: AnsweredBefore = {
 };
 
 describe("answeredBeforeLabel", () => {
-  it("gives the answer's date, and the thread's date when they differ", () => {
-    expect(answeredBeforeLabel(match)).toBe("Answered before on Sep 25, in a thread from Sep 24");
+  it("gives the date of the earlier thread", () => {
+    expect(answeredBeforeLabel(match)).toBe("Answered before on Sep 24");
   });
 
-  it("gives one date when the question was answered the same day", () => {
-    expect(answeredBeforeLabel({ ...match, answer: { ...match.answer, ts: "1790280000.000000" } })).toBe("Answered before on Sep 24");
+  it("uses the thread's date even when the answer came the next day", () => {
+    // The first real answer landed Sep 25, 01:57 UTC; the thread is from Sep 24.
+    expect(answeredBeforeLabel({ ...match, answer: { ...match.answer, ts: "1790301448.079750" } })).toBe(
+      "Answered before on Sep 24",
+    );
   });
 });
 
