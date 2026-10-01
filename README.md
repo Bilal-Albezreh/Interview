@@ -28,6 +28,7 @@ npm run digest -- data/sample-messages.json
 | `src/digest.ts` | `buildDigest` |
 | `src/classify.ts` | Word-list rules: is it a question, a real answer, a me-too or bump |
 | `src/duplicates.ts` | `findDuplicateQuestions`: questions several people asked this week |
+| `src/health.ts` | `communityHealth`: answer rate and median time to first answer, against last week |
 | `src/types.ts` | `SlackMessage` and `Digest` types |
 | `src/run.ts` | Script behind `npm run digest` |
 | `data/sample-messages.json` | 11 messages, so you can get a feel for the data |
@@ -38,6 +39,7 @@ npm run digest -- data/sample-messages.json
 | `test/classify.test.ts` | The word-list rules, mostly with real messages from the export |
 | `test/full-export.test.ts` | Spot checks on `data/messages.json`, expected values worked out by reading the data |
 | `test/duplicates.test.ts` | Duplicate questions: the real repeats in the export, plus near-misses that must stay apart |
+| `test/health.test.ts` | Health metrics on hand-built messages (including a bot-only reply), plus checks against `buildDigest` |
 | `vitest.config.ts` | Keeps `npm test` to `test/`; the demo app has its own tests |
 | `web/` | Demo app (Next.js), see [Demo app](#demo-app) |
 | `.github/workflows/ci.yml` | CI on every push: tests and typecheck here, plus test, typecheck and build for `web/` |
@@ -94,13 +96,13 @@ Next step: keep the cheap rules for the clear cases and send borderline messages
 
 `web/` is a small Next.js app that shows the digest. It's kept separate from the exercise: it imports `buildDigest` from `src/` and the exports from `data/`, and changes neither.
 
-The page is the Monday digest an admin would receive, laid out as a calm letter:
+The page is the Monday digest an admin would receive. A full-width top bar holds the title, the week and the dataset switch. Below it, on desktop, the digest takes the left column (about 60%), and a sticky panel on the right holds the Slack preview and "Test it yourself". On phones it's one column, digest first.
 
-- **Header:** "Monday digest", the week, and a switch between the sample and the full export. `buildDigest` runs on the server when the site is built, so only the digests reach the browser.
-- **Top threads:** each with its replies this week and a teal running stitch whose length matches. The stitches draw in once on first load (not with reduced motion).
-- **Waiting for an answer:** the unanswered questions, most nudged first, with their nudge count ("+1, same question" replies and bumps). The first 8 show; the rest are one click away. `buildDigest` sorts by this count but doesn't return it, so `web/lib/nudges.ts` recounts it with the same rule, and a test checks the two agree. Underneath, "Asked more than once" lists the duplicate groups, with how many of each group's posts are still waiting.
+- **Top bar:** "Monday digest", the week, and a switch between the sample and the full export. `buildDigest` runs on the server when the site is built, so only the digests reach the browser.
+- **Top threads:** each with an inline bar: a faint full-width track with a teal running-stitch fill whose length matches its replies this week, next to a right-aligned count. The fill is rounded to whole stitches so it never ends in a stub, and it draws in once on first load (not with reduced motion).
+- **Waiting for an answer:** the unanswered questions, most nudged first, with their nudge count ("+1, same question" replies and bumps). Askers appear as small round avatars (initials and a stable colour from the user ID, with the full ID in the tooltip) instead of raw Slack IDs. The first 8 show; the rest are one click away. `buildDigest` sorts by this count but doesn't return it, so `web/lib/nudges.ts` recounts it with the same rule, and a test checks the two agree. Underneath, "Asked more than once" lists the duplicate groups, with how many of each group's posts are still waiting.
 - **Summary:** the AI summary shown as a Slack-style message, plus "Copy as Block Kit JSON" (header, section and divider blocks, within Slack's size limits, with `&`, `<` and `>` escaped so message text can't ping the channel).
-- **Test it yourself:** paste or upload a messages JSON (up to 2 MB), pick the week start, and build the digest. It's validated with zod and runs entirely in the browser, with presets for the sample, the full export and an empty channel, and no AI summary. Below it, the self-check shows Pass or Fail for the sample against `sample-digest.json`.
+- **Test it yourself:** collapsed by default under the summary. Paste or upload a messages JSON (up to 2 MB), pick the week start, and build the digest. It's validated with zod and runs entirely in the browser, with presets for the sample, the full export and an empty channel, and no AI summary. Below it, the self-check shows Pass or Fail for the sample against `sample-digest.json`.
 
 ### Run it locally
 
@@ -149,6 +151,27 @@ The page works without a key; only the AI button needs one, and without it the b
 - "How do I export members to a CSV?" vs "How do I import members from a CSV?": 50% overlap, under the bar. Word overlap can't tell export from import, so the threshold has to.
 
 **Limits.** This only catches reposts and light rewording. It has no stemming or synonyms, so "How do I add members in bulk?" and "How do I bulk-import members from a CSV?" stay apart. Embeddings, or an AI pass over the week's questions, would catch rephrased duplicates like that. Either way, a person should confirm a merge before members are pointed to someone else's answer, because a wrong merge sends someone to an answer for a different question.
+
+## Community health metrics
+
+`communityHealth(messages, weekStart)` in `src/health.ts` is a separate function, so `buildDigest` and the `Digest` type are unchanged. It reports two numbers for the week and the same two for the 7 days before, plus the change:
+
+- **Answer rate:** questions answered within the week, divided by questions asked. It uses `buildDigest`'s rules from `classify.ts`, so "answered" means a real answer from someone other than the asker before the week ends. Questions minus answered always equals the number of unanswered questions `buildDigest` lists, and a test checks that on the real export for both weeks.
+- **Median time to first answer,** in hours, over the answered questions. It's measured to the first reply that counts as an answer, so bot replies, "+1"/"me too" replies, bumps, reactions and the asker's own replies are skipped.
+
+The demo shows them in one quiet row at the top of the digest, with the change spelled out ("down 15 points", "2.0 hours faster"), because a signed "-2 h" is ambiguous when lower is better.
+
+| On the full export | Questions | Answered | Answer rate | Median time to first answer |
+| --- | --- | --- | --- | --- |
+| Week of Sep 21 | 45 | 25 | 56% | 9.9 hours |
+| Week of Sep 14 | 37 | 26 | 70% | 11.9 hours |
+| Change | | | down 15 points | 2.0 hours faster |
+
+**Read with care:**
+- **Late-week questions have less time.** A question posted on Sunday evening has only hours to be answered before the week closes, so the answer rate leans low for questions near the end of the week.
+- **The median only covers answered questions.** A week can get faster answers while answering fewer questions, as this one did, so read the two numbers together.
+- **The previous week is slightly short.** The export starts at 01:01 UTC on Sep 14, so it's missing its first hour.
+- **Small weeks are noisy.** With only a handful of questions, one answer moves the rate a lot. The sample has 2 questions and no previous week, so its row says there's nothing to compare.
 
 ## Stretch: a week of data for 5,000 communities without hitting rate limits
 

@@ -3,12 +3,14 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { buildDigest } from "@core/digest";
 import { findDuplicateQuestions, type DuplicateQuestion } from "@core/duplicates";
+import { communityHealth, type CommunityHealth } from "@core/health";
 import type { Digest } from "@core/types";
 import { WEEK_START_ISO } from "@/lib/datasets";
 import { formatWeek } from "@/lib/format";
 import { nudgeCounts } from "@/lib/nudges";
 import { formatSize, MAX_INPUT_BYTES, parseMessages } from "@/lib/parse-messages";
 import { DuplicateGroups } from "./duplicate-groups";
+import { HealthRow } from "./health-row";
 import { TopThreads } from "./top-threads";
 import { WaitingList } from "./waiting-list";
 
@@ -24,6 +26,7 @@ type Result =
       digest: Digest;
       nudges: Record<string, number>;
       duplicates: DuplicateQuestion[];
+      health: CommunityHealth;
       messageCount: number;
       weekStart: Date;
     }
@@ -46,6 +49,7 @@ export function TryYourOwn() {
       digest,
       nudges: nudgeCounts(parsed.messages, start, digest),
       duplicates: findDuplicateQuestions(parsed.messages, start),
+      health: communityHealth(parsed.messages, start),
       messageCount: parsed.messages.length,
       weekStart: start,
     });
@@ -123,6 +127,7 @@ export function TryYourOwn() {
             {result.messageCount} messages, week of {formatWeek(result.weekStart)}. AI summaries are only for the two
             exports above.
           </p>
+          <HealthRow health={result.health} />
           <h3>Top threads</h3>
           <TopThreads threads={result.digest.topThreads} />
           <h3>Waiting for an answer</h3>

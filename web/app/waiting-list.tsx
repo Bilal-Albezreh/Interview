@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Digest } from "@core/types";
 import { formatDay } from "@/lib/format";
+import { Person } from "./person";
 
 // The most-nudged questions come first, so a short list keeps the letter readable.
 const SHOWN_AT_FIRST = 8;
@@ -21,16 +22,17 @@ export function WaitingList({ questions, nudges }: { questions: Digest["unanswer
           const n = nudges[q.ts] ?? 0;
           return (
             <li key={q.ts} className="question">
-              <div className="row">
-                <span className="row-text">{q.text}</span>
-                {n > 0 && (
-                  <span className="nudges">
-                    <span className="num">{n}</span> {n === 1 ? "nudge" : "nudges"}
-                  </span>
-                )}
+              <Person user={q.user} />
+              <div>
+                <p className="row-text">{q.text}</p>
+                <p className="meta">Asked {formatDay(q.ts)}</p>
               </div>
-              <span className="meta">
-                Asked {formatDay(q.ts)} by {q.user}
+              <span className="count">
+                {n > 0 && (
+                  <>
+                    <span className="num">{n}</span> {n === 1 ? "nudge" : "nudges"}
+                  </>
+                )}
               </span>
             </li>
           );
