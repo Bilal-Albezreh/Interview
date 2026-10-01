@@ -6,7 +6,7 @@ import { POST } from "@/app/api/summary/route";
 // A local stand-in for the OpenAI API, so the real SDK runs without a key or network.
 let server: Server;
 let reply: { status: number; body: unknown };
-let received: { url?: string; body: { model: string; input: string } } | undefined;
+let received: { url?: string; body: { model: string; input: string; text: { format: { type: string } } } } | undefined;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -31,7 +31,7 @@ beforeEach(() => {
   process.env.OPENAI_API_KEY = "test-key";
   delete process.env.OPENAI_MODEL;
   received = undefined;
-  reply = { status: 200, body: okResponse("Busy week.") };
+  reply = { status: 200, body: okResponse(JSON.stringify({ summary: "Busy week.", mood: MOOD })) };
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -46,6 +46,9 @@ function call(body: unknown, ip = `10.0.0.${++ipCounter}`) {
   );
 }
 
+// "congrats!!" is a real reply this week; the second quote is made up and must be dropped.
+const MOOD = { level: "Upbeat", reason: "Lots of thanks and congratulations.", quotes: ["congrats!!", "Best community ever!"] };
+
 function okResponse(text: string) {
   return {
     id: "resp_1",
@@ -56,23 +59,34 @@ function okResponse(text: string) {
 }
 
 describe("POST /api/summary", () => {
-  it("returns the summary for a preset", async () => {
+  it("returns the summary and the mood read from one call, keeping only real quotes", async () => {
     const res = await call({ dataset: "full" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ summary: "Busy week." });
+    expect(await res.json()).toEqual({
+      summary: "Busy week.",
+      mood: { level: "Upbeat", reason: "Lots of thanks and congratulations.", quotes: ["congrats!!"] },
+    });
     expect(received?.url).toBe("/v1/responses");
     expect(received?.body.model).toBe("gpt-5.4-mini");
+    expect(received?.body.text.format.type).toBe("json_schema");
   });
 
-  it("sends only the digest: no raw messages, user IDs or timestamps", async () => {
+  it("sends the digest and this week's message text, but no user IDs, timestamps, bots or joins", async () => {
     await call({ dataset: "full" });
     const input = received!.body.input;
     expect(input).toContain("What's the best way to migrate our community from Discourse?"); // a top thread
     expect(input).toContain("How do I bulk-import members from a CSV?"); // an unanswered question
+    expect(input).toContain("nvm figured it out, TTL hadn't expired"); // a reply posted this week
     expect(input).not.toMatch(/\bU0[A-Z0-9]+\b/); // Slack user IDs
     expect(input).not.toMatch(/\d{10}\.\d{6}/); // Slack timestamps
-    expect(input).not.toContain("has joined the channel"); // only in raw messages
-    expect(input).not.toContain("nvm figured it out"); // a reply, only in raw messages
+    expect(input).not.toContain("has joined the channel"); // channel joins
+    expect(input).not.toContain("A team member usually replies within 1 business day"); // a bot reply
+    expect(input).not.toContain("No, only public channels."); // a reply posted after the week ended
+  });
+
+  it("keeps the summary when the mood read is malformed", async () => {
+    reply = { status: 200, body: okResponse(JSON.stringify({ summary: "Busy week.", mood: { level: "Elated" } })) };
+    expect(await (await call({ dataset: "sample" })).json()).toEqual({ summary: "Busy week.", mood: null });
   });
 
   it("uses OPENAI_MODEL when set", async () => {
@@ -86,6 +100,13 @@ describe("POST /api/summary", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'Unknown dataset. Send {"dataset": "sample"} or {"dataset": "full"}.' });
     expect(received).toBeUndefined();
+  });
+
+  it("explains unreadable model output", async () => {
+    reply = { status: 200, body: okResponse("Busy week, but not JSON") };
+    const res = await call({ dataset: "full" });
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "The AI service returned something we couldn't read. Try again." });
   });
 
   it("ignores extra fields instead of passing them on", async () => {

@@ -15,6 +15,10 @@ const MESSAGES: Record<DatasetName, SlackMessage[]> = {
   full: fullMessages as SlackMessage[],
 };
 
+export function messagesFor(dataset: DatasetName): SlackMessage[] {
+  return MESSAGES[dataset];
+}
+
 export function digestFor(dataset: DatasetName): Digest {
   return buildDigest(MESSAGES[dataset], WEEK_START);
 }

@@ -5,10 +5,12 @@ import type { Digest } from "@core/types";
 import { buildBlockKit } from "@/lib/block-kit";
 import { WEEK_START, type DatasetName } from "@/lib/datasets";
 import { formatWeekOf } from "@/lib/format";
+import { MOOD_LEVELS, type Mood } from "@/lib/mood";
+import { AiRead } from "./ai-read";
 
 type Summary = { dataset: DatasetName } & (
   | { state: "loading" }
-  | { state: "done"; text: string }
+  | { state: "done"; text: string; mood: Mood | null }
   | { state: "error"; message: string }
 );
 
@@ -40,7 +42,12 @@ export function SummarySection({ dataset, digest, nudges }: Props) {
   return (
     <section className="section" aria-labelledby="summary-heading">
       <h2 id="summary-heading">Summary</h2>
-      <p className="note">How this digest would arrive in Slack. The AI writes it from the two lists above, nothing else.</p>
+      <p className="note">
+        How this digest would arrive in Slack. The AI writes it from the two lists above and the text of this
+        week&rsquo;s messages, with no names or IDs.
+      </p>
+
+      {shown?.state === "done" && shown.mood && <AiRead mood={shown.mood} />}
 
       <div className="slack-message" aria-live="polite" aria-busy={loading}>
         <div className="avatar" aria-hidden="true">
@@ -89,10 +96,17 @@ async function requestSummary(dataset: DatasetName): Promise<Summary> {
       body: JSON.stringify({ dataset }),
     });
     const body = await res.json().catch(() => null);
-    if (res.ok && typeof body?.summary === "string") return { dataset, state: "done", text: body.summary };
+    if (res.ok && typeof body?.summary === "string") {
+      return { dataset, state: "done", text: body.summary, mood: isMood(body.mood) ? body.mood : null };
+    }
     const message = typeof body?.error === "string" ? body.error : `The server answered with status ${res.status}.`;
     return { dataset, state: "error", message };
   } catch {
     return { dataset, state: "error", message: "Couldn't reach the server. Check your connection and try again." };
   }
+}
+
+function isMood(value: unknown): value is Mood {
+  const m = value as Mood | null;
+  return !!m && MOOD_LEVELS.includes(m.level) && typeof m.reason === "string" && Array.isArray(m.quotes);
 }
