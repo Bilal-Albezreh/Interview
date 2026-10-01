@@ -28,6 +28,7 @@ npm run digest -- data/sample-messages.json
 | `src/digest.ts` | `buildDigest` |
 | `src/classify.ts` | Word-list rules: is it a question, a real answer, a me-too or bump |
 | `src/duplicates.ts` | `findDuplicateQuestions`: questions several people asked this week |
+| `src/health.ts` | `communityHealth`: answer rate and median time to first answer, against last week |
 | `src/types.ts` | `SlackMessage` and `Digest` types |
 | `src/run.ts` | Script behind `npm run digest` |
 | `data/sample-messages.json` | 11 messages, so you can get a feel for the data |
@@ -38,6 +39,7 @@ npm run digest -- data/sample-messages.json
 | `test/classify.test.ts` | The word-list rules, mostly with real messages from the export |
 | `test/full-export.test.ts` | Spot checks on `data/messages.json`, expected values worked out by reading the data |
 | `test/duplicates.test.ts` | Duplicate questions: the real repeats in the export, plus near-misses that must stay apart |
+| `test/health.test.ts` | Health metrics on hand-built messages (including a bot-only reply), plus checks against `buildDigest` |
 | `vitest.config.ts` | Keeps `npm test` to `test/`; the demo app has its own tests |
 | `web/` | Demo app (Next.js), see [Demo app](#demo-app) |
 | `.github/workflows/ci.yml` | CI on every push: tests and typecheck here, plus test, typecheck and build for `web/` |
@@ -149,6 +151,27 @@ The page works without a key; only the AI button needs one, and without it the b
 - "How do I export members to a CSV?" vs "How do I import members from a CSV?": 50% overlap, under the bar. Word overlap can't tell export from import, so the threshold has to.
 
 **Limits.** This only catches reposts and light rewording. It has no stemming or synonyms, so "How do I add members in bulk?" and "How do I bulk-import members from a CSV?" stay apart. Embeddings, or an AI pass over the week's questions, would catch rephrased duplicates like that. Either way, a person should confirm a merge before members are pointed to someone else's answer, because a wrong merge sends someone to an answer for a different question.
+
+## Community health metrics
+
+`communityHealth(messages, weekStart)` in `src/health.ts` is a separate function, so `buildDigest` and the `Digest` type are unchanged. It reports two numbers for the week and the same two for the 7 days before, plus the change:
+
+- **Answer rate:** questions answered within the week, divided by questions asked. It uses `buildDigest`'s rules from `classify.ts`, so "answered" means a real answer from someone other than the asker before the week ends. Questions minus answered always equals the number of unanswered questions `buildDigest` lists, and a test checks that on the real export for both weeks.
+- **Median time to first answer,** in hours, over the answered questions. It's measured to the first reply that counts as an answer, so bot replies, "+1"/"me too" replies, bumps, reactions and the asker's own replies are skipped.
+
+The demo shows them in one quiet row at the top of the digest, with the change spelled out ("down 15 points", "2.0 hours faster"), because a signed "-2 h" is ambiguous when lower is better.
+
+| On the full export | Questions | Answered | Answer rate | Median time to first answer |
+| --- | --- | --- | --- | --- |
+| Week of Sep 21 | 45 | 25 | 56% | 9.9 hours |
+| Week of Sep 14 | 37 | 26 | 70% | 11.9 hours |
+| Change | | | down 15 points | 2.0 hours faster |
+
+**Read with care:**
+- **Late-week questions have less time.** A question posted on Sunday evening has only hours to be answered before the week closes, so the answer rate leans low for questions near the end of the week.
+- **The median only covers answered questions.** A week can get faster answers while answering fewer questions, as this one did, so read the two numbers together.
+- **The previous week is slightly short.** The export starts at 01:01 UTC on Sep 14, so it's missing its first hour.
+- **Small weeks are noisy.** With only a handful of questions, one answer moves the rate a lot. The sample has 2 questions and no previous week, so its row says there's nothing to compare.
 
 ## Stretch: a week of data for 5,000 communities without hitting rate limits
 

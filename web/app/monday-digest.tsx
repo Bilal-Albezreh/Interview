@@ -2,15 +2,22 @@
 
 import { useState, type ReactNode } from "react";
 import type { DuplicateQuestion } from "@core/duplicates";
+import type { CommunityHealth } from "@core/health";
 import type { Digest } from "@core/types";
 import { DATASET_NAMES, WEEK_START, type DatasetName } from "@/lib/datasets";
 import { formatWeekOf } from "@/lib/format";
 import { DuplicateGroups } from "./duplicate-groups";
+import { HealthRow } from "./health-row";
 import { SummarySection } from "./summary-section";
 import { TopThreads } from "./top-threads";
 import { WaitingList } from "./waiting-list";
 
-type Preset = { digest: Digest; nudges: Record<string, number>; duplicates: DuplicateQuestion[] };
+type Preset = {
+  digest: Digest;
+  nudges: Record<string, number>;
+  duplicates: DuplicateQuestion[];
+  health: CommunityHealth;
+};
 
 const LABELS: Record<DatasetName, string> = { sample: "Sample", full: "Full export" };
 
@@ -21,7 +28,7 @@ const LABELS: Record<DatasetName, string> = { sample: "Sample", full: "Full expo
 export function MondayDigest({ presets, tools }: { presets: Record<DatasetName, Preset>; tools: ReactNode }) {
   const [dataset, setDataset] = useState<DatasetName>("full");
   const [firstLoad, setFirstLoad] = useState(true); // stitches draw in once, not on every switch
-  const { digest, nudges, duplicates } = presets[dataset];
+  const { digest, nudges, duplicates, health } = presets[dataset];
 
   function choose(name: DatasetName) {
     setFirstLoad(false);
@@ -48,6 +55,7 @@ export function MondayDigest({ presets, tools }: { presets: Record<DatasetName, 
 
       <main className="container layout">
         <article className="digest" aria-labelledby="digest-title">
+          <HealthRow health={health} />
           <p className="intro">{intro(digest)}</p>
 
           <section className="section" aria-labelledby="threads-heading">
