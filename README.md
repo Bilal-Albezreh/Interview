@@ -28,6 +28,7 @@ npm run digest -- data/sample-messages.json
 | `src/digest.ts` | `buildDigest` |
 | `src/classify.ts` | Word-list rules: is it a question, a real answer, a me-too or bump |
 | `src/duplicates.ts` | `findDuplicateQuestions`: questions several people asked this week |
+| `src/answered-before.ts` | `findAnsweredBefore`: an earlier, answered copy of each question still waiting |
 | `src/health.ts` | `communityHealth`: answer rate and median time to first answer, against last week |
 | `src/types.ts` | `SlackMessage` and `Digest` types |
 | `src/run.ts` | Script behind `npm run digest` |
@@ -39,6 +40,7 @@ npm run digest -- data/sample-messages.json
 | `test/classify.test.ts` | The word-list rules, mostly with real messages from the export |
 | `test/full-export.test.ts` | Spot checks on `data/messages.json`, expected values worked out by reading the data |
 | `test/duplicates.test.ts` | Duplicate questions: the real repeats in the export, plus near-misses that must stay apart |
+| `test/answered-before.test.ts` | Earlier answers: the landing-page match, a near-miss, and the answer rules on hand-built messages |
 | `test/health.test.ts` | Health metrics on hand-built messages (including a bot-only reply), plus checks against `buildDigest` |
 | `vitest.config.ts` | Keeps `npm test` to `test/`; the demo app has its own tests |
 | `web/` | Demo app (Next.js), see [Demo app](#demo-app) |
@@ -101,7 +103,7 @@ The page is the Monday digest an admin would receive. A full-width top bar holds
 - **Top bar:** "Monday digest", the week, and a switch between the sample and the full export. `buildDigest` runs on the server when the site is built, so only the digests reach the browser.
 - **Top threads:** each with an inline bar: a faint full-width track with a teal running-stitch fill whose length matches its replies this week, next to a right-aligned count. The fill is rounded to whole stitches so it never ends in a stub, and it draws in once on first load (not with reduced motion).
 - **Waiting for an answer:** the unanswered questions, most nudged first, with their nudge count ("+1, same question" replies and bumps). Askers appear as small round avatars (initials and a stable colour from the user ID, with the full ID in the tooltip) instead of raw Slack IDs. The first 8 show; the rest are one click away. `buildDigest` sorts by this count but doesn't return it, so `web/lib/nudges.ts` recounts it with the same rule, and a test checks the two agree. Underneath, "Asked more than once" lists the duplicate groups, with how many of each group's posts are still waiting.
-- **Summary:** the AI summary shown as a Slack-style message, plus "Copy as Block Kit JSON" (header, section and divider blocks, within Slack's size limits, with `&`, `<` and `>` escaped so message text can't ping the channel).
+- **Summary:** the AI summary shown as a Slack-style message. The same call also returns a mood read for the week (Upbeat, Mixed or Frustrated), shown above it as a small three-step "AI read" meter with one sentence why and two or three checked quotes underneath. Below the message is "Copy as Block Kit JSON" (header, section and divider blocks, within Slack's size limits, with `&`, `<` and `>` escaped so message text can't ping the channel).
 - **Test it yourself:** collapsed by default under the summary. Paste or upload a messages JSON (up to 2 MB), pick the week start, and build the digest. It's validated with zod and runs entirely in the browser, with presets for the sample, the full export and an empty channel, and no AI summary. Below it, the self-check shows Pass or Fail for the sample against `sample-digest.json`.
 
 ### Run it locally
@@ -126,7 +128,8 @@ The page works without a key; only the AI button needs one, and without it the b
 
 - **The key stays on the server.** It's read from `OPENAI_API_KEY` in a module marked `server-only`, so the build fails if anything imports it into browser code.
 - **The route takes a dataset name, never text.** It accepts only `{"dataset": "sample"}` or `{"dataset": "full"}` and rebuilds the digest itself, so nobody can send their own prompt through the key.
-- **OpenAI gets only the digest's text and counts.** Raw messages are never sent, and Slack user IDs and timestamps are dropped. The prompt tells the model to treat the texts as quoted data, not instructions. The reply is shown as plain text, never HTML.
+- **OpenAI gets message text, never who wrote it.** It receives the digest's text and counts, plus the text of this week's top-level posts and replies from people (for the mood read). No Slack user IDs, timestamps, bot posts or channel joins are sent, and any `<@U…>` mention inside a message is replaced with "@someone". The prompt tells the model to treat all of it as quoted data, not instructions. The reply is shown as plain text, never HTML.
+- **Quotes are checked, not trusted.** The mood read's evidence quotes are kept only if they appear word for word in one of the messages that were sent (allowing for curly quote marks and spacing), at most three. Any others are dropped, and a malformed mood read is dropped without losing the summary.
 - **Rate limit:** 5 requests per minute per IP. The counts are kept in server memory, so on Vercel each instance counts separately and a cold start resets them. That's fine for a demo; production would use shared storage (Vercel KV, Upstash) or a Vercel Firewall rule.
 - **Clear errors:** a bad body, the rate limit, a missing key, a rejected key, OpenAI being busy or out of quota, and a timeout (30 s) each get their own message. Details stay in the server log.
 
@@ -151,6 +154,20 @@ The page works without a key; only the AI button needs one, and without it the b
 - "How do I export members to a CSV?" vs "How do I import members from a CSV?": 50% overlap, under the bar. Word overlap can't tell export from import, so the threshold has to.
 
 **Limits.** This only catches reposts and light rewording. It has no stemming or synonyms, so "How do I add members in bulk?" and "How do I bulk-import members from a CSV?" stay apart. Embeddings, or an AI pass over the week's questions, would catch rephrased duplicates like that. Either way, a person should confirm a merge before members are pointed to someone else's answer, because a wrong merge sends someone to an answer for a different question.
+
+## Already answered
+
+`findAnsweredBefore(messages, weekStart)` in `src/answered-before.ts` is a separate function; `buildDigest` and the `Digest` type are unchanged. For each question `buildDigest` lists as unanswered, it looks for an **earlier** question anywhere in the export that:
+- asked the same thing, matched with `findDuplicateQuestions`' normalisation and 60% bar, and
+- got a real answer before the week ended, using the `classify.ts` rules (someone other than the asker, not a bot, not "+1" or a reaction).
+
+It returns `{ question, earlier, answer }`, where `answer` is the earlier question's first real answer. If several earlier questions match, the closest wording wins, then the most recent.
+
+**On this export,** 9 of the 20 waiting questions have an earlier answer. For example, the Sep 27 landing-page question points to the same question asked on Sep 24, whose first real answer came at 01:57 UTC on Sep 25. A more recent answered question that shares "handle" and "members" with the offboarding question is correctly left out.
+
+**In the demo,** a note under the waiting question reads "Answered before on Sep 25, in a thread from Sep 24", followed by the quoted answer and a **Copy reply** button. The button copies a short, friendly reply quoting that answer. The reply names no one, so pasting it can't ping anybody, and nothing is posted automatically.
+
+**Limits.** It matches the question, not whether the earlier answer is right. In this export, replies are paired with questions at random, so some earlier "answers" don't fit; "Are polls anonymous by default?" points to "What worked best for us was a weekly prompt from the team." That's why it's a reply for an admin to read before pasting, not an automatic one.
 
 ## Community health metrics
 

@@ -4,7 +4,7 @@ import type { SlackMessage } from "./types";
 const WEEK_SECONDS = 7 * 24 * 60 * 60;
 
 // Share of words two questions must have in common (|shared| / |all|) to count as the same question.
-const MIN_OVERLAP = 0.6;
+export const MIN_OVERLAP = 0.6;
 
 export type DuplicateQuestion = {
   text: string; // the first time it was asked this week
@@ -34,7 +34,7 @@ export function findDuplicateQuestions(messages: SlackMessage[], weekStart: Date
   for (const q of questions) {
     const words = contentWords(q.text);
     if (words.size === 0) continue;
-    const group = groups.find((g) => overlap(g.words, words) >= MIN_OVERLAP);
+    const group = groups.find((g) => wordOverlap(g.words, words) >= MIN_OVERLAP);
     if (group) group.members.push(q);
     else groups.push({ words, members: [q] });
   }
@@ -77,8 +77,10 @@ export function contentWords(text: string): Set<string> {
   return new Set(words);
 }
 
-function overlap(a: Set<string>, b: Set<string>): number {
+/** Share of content words two questions have in common: |shared| / |all|, 0 to 1. */
+export function wordOverlap(a: Set<string>, b: Set<string>): number {
   let shared = 0;
   for (const w of a) if (b.has(w)) shared++;
-  return shared / (a.size + b.size - shared);
+  const all = a.size + b.size - shared;
+  return all === 0 ? 0 : shared / all;
 }

@@ -33,3 +33,9 @@ export function formatDay(ts: string): string {
   const d = new Date(Number(ts) * 1000);
   return `${DAYS[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
+
+/** "Sep 24" */
+export function formatShortDate(ts: string): string {
+  const d = new Date(Number(ts) * 1000);
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}

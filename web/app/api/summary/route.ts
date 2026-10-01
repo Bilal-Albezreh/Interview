@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { DATASET_NAMES } from "@/lib/datasets";
-import { digestFor } from "@/lib/digests";
+import { DATASET_NAMES, WEEK_START } from "@/lib/datasets";
+import { digestFor, messagesFor } from "@/lib/digests";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { createClient, DEFAULT_MODEL, SummaryError, writeSummary } from "@/lib/summarize";
+import { createClient, DEFAULT_MODEL, SummaryError, weekMessageTexts, writeSummary } from "@/lib/summarize";
 
 export const runtime = "nodejs";
 
@@ -34,8 +34,11 @@ export async function POST(request: Request) {
 
   try {
     const model = process.env.OPENAI_MODEL || DEFAULT_MODEL;
-    const summary = await writeSummary(digestFor(body.data.dataset), createClient(apiKey), model);
-    return Response.json({ summary });
+    const { dataset } = body.data;
+    // One call returns the summary and the mood read; the model sees message text only, no IDs.
+    const texts = weekMessageTexts(messagesFor(dataset), WEEK_START);
+    const result = await writeSummary(digestFor(dataset), texts, createClient(apiKey), model);
+    return Response.json(result); // { summary, mood }
   } catch (err) {
     // Full details stay in the server log; the browser only gets the safe message.
     console.error("AI summary failed:", err instanceof SummaryError ? (err.cause ?? err) : err);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ChangeEvent } from "react";
+import { findAnsweredBefore, type AnsweredBefore } from "@core/answered-before";
 import { buildDigest } from "@core/digest";
 import { findDuplicateQuestions, type DuplicateQuestion } from "@core/duplicates";
 import { communityHealth, type CommunityHealth } from "@core/health";
@@ -9,6 +10,7 @@ import { WEEK_START_ISO } from "@/lib/datasets";
 import { formatWeek } from "@/lib/format";
 import { nudgeCounts } from "@/lib/nudges";
 import { formatSize, MAX_INPUT_BYTES, parseMessages } from "@/lib/parse-messages";
+import { byQuestion } from "@/lib/reply";
 import { DuplicateGroups } from "./duplicate-groups";
 import { HealthRow } from "./health-row";
 import { TopThreads } from "./top-threads";
@@ -27,6 +29,7 @@ type Result =
       nudges: Record<string, number>;
       duplicates: DuplicateQuestion[];
       health: CommunityHealth;
+      answeredBefore: Record<string, AnsweredBefore>;
       messageCount: number;
       weekStart: Date;
     }
@@ -50,6 +53,7 @@ export function TryYourOwn() {
       nudges: nudgeCounts(parsed.messages, start, digest),
       duplicates: findDuplicateQuestions(parsed.messages, start),
       health: communityHealth(parsed.messages, start),
+      answeredBefore: byQuestion(findAnsweredBefore(parsed.messages, start)),
       messageCount: parsed.messages.length,
       weekStart: start,
     });
@@ -131,7 +135,7 @@ export function TryYourOwn() {
           <h3>Top threads</h3>
           <TopThreads threads={result.digest.topThreads} />
           <h3>Waiting for an answer</h3>
-          <WaitingList questions={result.digest.unanswered} nudges={result.nudges} />
+          <WaitingList questions={result.digest.unanswered} nudges={result.nudges} answeredBefore={result.answeredBefore} />
           <DuplicateGroups groups={result.duplicates} unanswered={result.digest.unanswered} />
         </div>
       )}
