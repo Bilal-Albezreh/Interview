@@ -1,5 +1,6 @@
 import "server-only";
 import { isDeepStrictEqual } from "node:util";
+import { findAnsweredBefore, type AnsweredBefore } from "@core/answered-before";
 import { buildDigest } from "@core/digest";
 import { findDuplicateQuestions, type DuplicateQuestion } from "@core/duplicates";
 import { communityHealth, type CommunityHealth } from "@core/health";
@@ -9,6 +10,7 @@ import sampleDigest from "@data/sample-digest.json";
 import sampleMessages from "@data/sample-messages.json";
 import { WEEK_START, type DatasetName } from "./datasets";
 import { nudgeCounts } from "./nudges";
+import { byQuestion } from "./reply";
 
 const MESSAGES: Record<DatasetName, SlackMessage[]> = {
   sample: sampleMessages as SlackMessage[],
@@ -28,9 +30,10 @@ export type Preset = {
   nudges: Record<string, number>;
   duplicates: DuplicateQuestion[];
   health: CommunityHealth;
+  answeredBefore: Record<string, AnsweredBefore>; // keyed by the waiting question's ts
 };
 
-/** A preset's digest plus what the page adds around it: nudges, duplicate questions and health metrics. */
+/** A preset's digest plus what the page adds around it: nudges, duplicates, health and earlier answers. */
 export function presetFor(dataset: DatasetName): Preset {
   const digest = digestFor(dataset);
   return {
@@ -38,6 +41,7 @@ export function presetFor(dataset: DatasetName): Preset {
     nudges: nudgeCounts(MESSAGES[dataset], WEEK_START, digest),
     duplicates: findDuplicateQuestions(MESSAGES[dataset], WEEK_START),
     health: communityHealth(MESSAGES[dataset], WEEK_START),
+    answeredBefore: byQuestion(findAnsweredBefore(MESSAGES[dataset], WEEK_START)),
   };
 }
 

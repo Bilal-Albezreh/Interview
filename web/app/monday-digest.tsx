@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import type { AnsweredBefore } from "@core/answered-before";
 import type { DuplicateQuestion } from "@core/duplicates";
 import type { CommunityHealth } from "@core/health";
 import type { Digest } from "@core/types";
@@ -17,6 +18,7 @@ type Preset = {
   nudges: Record<string, number>;
   duplicates: DuplicateQuestion[];
   health: CommunityHealth;
+  answeredBefore: Record<string, AnsweredBefore>;
 };
 
 const LABELS: Record<DatasetName, string> = { sample: "Sample", full: "Full export" };
@@ -28,7 +30,7 @@ const LABELS: Record<DatasetName, string> = { sample: "Sample", full: "Full expo
 export function MondayDigest({ presets, tools }: { presets: Record<DatasetName, Preset>; tools: ReactNode }) {
   const [dataset, setDataset] = useState<DatasetName>("full");
   const [firstLoad, setFirstLoad] = useState(true); // stitches draw in once, not on every switch
-  const { digest, nudges, duplicates, health } = presets[dataset];
+  const { digest, nudges, duplicates, health, answeredBefore } = presets[dataset];
 
   function choose(name: DatasetName) {
     setFirstLoad(false);
@@ -69,7 +71,7 @@ export function MondayDigest({ presets, tools }: { presets: Record<DatasetName, 
             <p className="note">
               Most nudged first. A nudge is a &ldquo;+1, same question&rdquo; reply, or the asker bumping their own post.
             </p>
-            <WaitingList questions={digest.unanswered} nudges={nudges} />
+            <WaitingList questions={digest.unanswered} nudges={nudges} answeredBefore={answeredBefore} />
             <DuplicateGroups groups={duplicates} unanswered={digest.unanswered} />
           </section>
         </article>
