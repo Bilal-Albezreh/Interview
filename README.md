@@ -92,10 +92,13 @@ Next step: keep the cheap rules for the clear cases and send borderline messages
 
 `web/` is a small Next.js app that shows the digest. It's kept separate from the exercise: it imports `buildDigest` from `src/` and the exports from `data/`, and changes neither.
 
-- **Channel exports:** the digest for the sample and the full export. `buildDigest` runs on the server when the site is built, so only the digests reach the browser.
-- **Write summary with AI:** asks a server route to turn the digest into a short Monday note for the admin, using OpenAI.
-- **Self-check:** shows PASS or FAIL for the sample output against `sample-digest.json`.
-- **Try your own data:** paste or upload a messages JSON (up to 2 MB), pick the week start, and build the digest. It's validated with zod and runs entirely in the browser. There are presets for the sample, the full export and an empty channel. There's no AI summary for custom data.
+The page is the Monday digest an admin would receive, laid out as a calm letter:
+
+- **Header:** "Monday digest", the week, and a switch between the sample and the full export. `buildDigest` runs on the server when the site is built, so only the digests reach the browser.
+- **Top threads:** each with its replies this week and a teal running stitch whose length matches. The stitches draw in once on first load (not with reduced motion).
+- **Waiting for an answer:** the unanswered questions, most nudged first, with their nudge count ("+1, same question" replies and bumps). The first 8 show; the rest are one click away. `buildDigest` sorts by this count but doesn't return it, so `web/lib/nudges.ts` recounts it with the same rule, and a test checks the two agree.
+- **Summary:** the AI summary shown as a Slack-style message, plus "Copy as Block Kit JSON" (header, section and divider blocks, within Slack's size limits, with `&`, `<` and `>` escaped so message text can't ping the channel).
+- **Test it yourself:** paste or upload a messages JSON (up to 2 MB), pick the week start, and build the digest. It's validated with zod and runs entirely in the browser, with presets for the sample, the full export and an empty channel, and no AI summary. Below it, the self-check shows Pass or Fail for the sample against `sample-digest.json`.
 
 ### Run it locally
 
@@ -111,7 +114,7 @@ The page works without a key; only the AI button needs one, and without it the b
 
 ### Deploy to Vercel
 
-1. Import the repo in Vercel and set **Root Directory** to `web`. Keep "Include files outside the root directory in the Build Step" on (the default), since the app imports `../src` and `../data`.
+1. Import the repo in Vercel and set **Root Directory** to `web`. Keep "Include files outside the root directory in the Build Step" on (the default), since the app imports `../src` and `../data`. `web/vercel.json` sets the framework to Next.js, so the Framework Preset in the dashboard doesn't matter (if it's "Other", the build fails with "No Output Directory named "public" found").
 2. Add the environment variable `OPENAI_API_KEY`. `OPENAI_MODEL` is optional and defaults to `gpt-5.4-mini`.
 3. Deploy.
 

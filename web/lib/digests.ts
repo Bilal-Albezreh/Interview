@@ -6,6 +6,7 @@ import fullMessages from "@data/messages.json";
 import sampleDigest from "@data/sample-digest.json";
 import sampleMessages from "@data/sample-messages.json";
 import { WEEK_START, type DatasetName } from "./datasets";
+import { nudgeCounts } from "./nudges";
 
 const MESSAGES: Record<DatasetName, SlackMessage[]> = {
   sample: sampleMessages as SlackMessage[],
@@ -14,6 +15,14 @@ const MESSAGES: Record<DatasetName, SlackMessage[]> = {
 
 export function digestFor(dataset: DatasetName): Digest {
   return buildDigest(MESSAGES[dataset], WEEK_START);
+}
+
+export type Preset = { digest: Digest; nudges: Record<string, number> };
+
+/** A preset's digest plus how many nudges each unanswered question got, for the page. */
+export function presetFor(dataset: DatasetName): Preset {
+  const digest = digestFor(dataset);
+  return { digest, nudges: nudgeCounts(MESSAGES[dataset], WEEK_START, digest) };
 }
 
 export type SelfCheckResult = { pass: boolean; expected: Digest; actual: Digest };
