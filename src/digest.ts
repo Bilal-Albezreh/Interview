@@ -1,4 +1,4 @@
-import { isQuestion, isRealAnswer, isSelfResolved } from "./classify";
+import { isMeTooOrBump, isQuestion, isRealAnswer } from "./classify";
 import type { Digest, SlackMessage } from "./types";
 
 const WEEK_SECONDS = 7 * 24 * 60 * 60;
@@ -14,8 +14,9 @@ const TOP_THREAD_COUNT = 3;
  *    Threads started before the week count too; `reply_count` is ignored because
  *    it's an all-time total. Ties go to the older thread.
  *  - unanswered: top-level questions posted this week where, by the end of the week,
- *    nobody else gave a real answer and the asker didn't say they solved it.
- *    Oldest first.
+ *    nobody other than the asker gave a real answer. Most "+1 / same question" and
+ *    bump replies first, then oldest first. (Reactions would be a better signal, but
+ *    they aren't in the data.)
  *
  * Bot messages and channel joins are ignored everywhere.
  */
@@ -47,15 +48,19 @@ export function buildDigest(messages: SlackMessage[], weekStart: Date): Digest {
 
   const unanswered = people
     .filter((m) => !isReply(m) && inWeek(m.ts) && isQuestion(m.text))
-    .filter((q) => {
-      // Only replies sent before the digest goes out count as answers.
-      const replies = (repliesByThread.get(q.ts) ?? []).filter((r) => Number(r.ts) < end);
-      const answeredByOthers = replies.some((r) => r.user !== q.user && isRealAnswer(r.text));
-      const solvedByAsker = replies.some((r) => r.user === q.user && isSelfResolved(r.text));
-      return !answeredByOthers && !solvedByAsker;
+    .map((question) => {
+      // Only replies sent before the digest goes out count.
+      const replies = (repliesByThread.get(question.ts) ?? []).filter((r) => Number(r.ts) < end);
+      return {
+        question,
+        answered: replies.some((r) => r.user !== question.user && isRealAnswer(r.text)),
+        // "+1, same question" and "bump": people telling us this one matters.
+        demand: replies.filter((r) => isMeTooOrBump(r.text)).length,
+      };
     })
-    .sort((a, b) => byTs(a.ts, b.ts))
-    .map(({ ts, user, text }) => ({ ts, user, text }));
+    .filter((q) => !q.answered)
+    .sort((a, b) => b.demand - a.demand || byTs(a.question.ts, b.question.ts))
+    .map(({ question: { ts, user, text } }) => ({ ts, user, text }));
 
   return { topThreads, unanswered };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isQuestion, isRealAnswer, isSelfResolved } from "../src/classify";
+import { isMeTooOrBump, isQuestion, isRealAnswer } from "../src/classify";
 
 // Examples are taken from data/messages.json unless noted.
 describe("isQuestion", () => {
@@ -34,23 +34,24 @@ describe("isRealAnswer", () => {
     "No, only public channels.",
     "Livestorm!",
     "I don't think that's supported yet, but there's a feature request thread for it.",
+    "Same, we use a Zapier workflow for it", // made up: starts like a me-too but has content
+    "I don't think anyone has tried that", // made up: "anyone" mid-sentence isn't a bump
   ])("answer: %s", (text) => expect(isRealAnswer(text)).toBe(true));
 
-  it.each(["+1", "+1, same question", "+1 to all of the above", "Same here", "🔥", "congrats!!", "thanks!", "Saving this", "this is super helpful 🙏"])(
+  it.each(["+1", "+1, same question", "+1 to all of the above", "Same here", "bump", "🔥", "congrats!!", "thanks!", "Saving this", "this is super helpful 🙏"])(
     "not an answer: %s",
     (text) => expect(isRealAnswer(text)).toBe(false),
   );
 });
 
-describe("isSelfResolved", () => {
-  it("spots the asker solving it", () => {
-    expect(isSelfResolved("nvm figured it out, TTL hadn't expired")).toBe(true);
-    expect(isSelfResolved("never mind, got it working")).toBe(true);
-  });
+describe("isMeTooOrBump", () => {
+  it.each(["+1", "+1, same question", "Same here", "bump", "anyone? still stuck on this", "any ideas?"])(
+    "counts: %s",
+    (text) => expect(isMeTooOrBump(text)).toBe(true),
+  );
 
-  it("doesn't treat bumps or thanks as solved", () => {
-    expect(isSelfResolved("bump")).toBe(false);
-    expect(isSelfResolved("anyone? still stuck on this")).toBe(false);
-    expect(isSelfResolved("thanks both!")).toBe(false);
-  });
+  it.each(["🔥", "thanks!", "Saving this", "nvm figured it out, TTL hadn't expired", "No, only public channels."])(
+    "doesn't count: %s",
+    (text) => expect(isMeTooOrBump(text)).toBe(false),
+  );
 });

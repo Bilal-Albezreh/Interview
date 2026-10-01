@@ -110,9 +110,11 @@ describe("unanswered", () => {
     ]);
   });
 
-  it("drops a question the asker said they solved themselves", () => {
+  it("keeps a question the asker solved themselves, so the admin can still see it", () => {
     const q = post(1, "Why won't my domain verify?");
-    expect(unansweredOf([q, reply(q, 1.5, "nvm figured it out, TTL hadn't expired", "U_ASKER")])).toEqual([]);
+    expect(unansweredOf([q, reply(q, 1.5, "nvm figured it out, TTL hadn't expired", "U_ASKER")])).toEqual([
+      "Why won't my domain verify?",
+    ]);
   });
 
   it("keeps a question whose only reply is a bot auto-response", () => {
@@ -152,7 +154,37 @@ describe("unanswered", () => {
     expect(unansweredOf([ama, reply(ama, 6.5, "Will this be recorded?")])).toEqual([]);
   });
 
-  it("lists the oldest question first", () => {
+  it("puts questions with the most me-toos and bumps first", () => {
+    const none = post(1, "No one else cares?");
+    const one = post(2, "One +1?");
+    const two = post(3, "Bumped and +1'd?");
+    expect(
+      unansweredOf([
+        none,
+        one,
+        reply(one, 2.5, "+1, same question"),
+        two,
+        reply(two, 3.5, "bump", "U_ASKER"),
+        reply(two, 4, "Same here"),
+      ]),
+    ).toEqual(["Bumped and +1'd?", "One +1?", "No one else cares?"]);
+  });
+
+  it("breaks ties oldest first", () => {
     expect(unansweredOf([post(3, "Newer?"), post(1, "Older?")])).toEqual(["Older?", "Newer?"]);
+  });
+
+  it("doesn't count reactions or replies after the week as demand", () => {
+    const reacted = post(1, "Got a 🔥 and a late bump?");
+    const plusOned = post(2, "Got a +1?");
+    expect(
+      unansweredOf([
+        reacted,
+        reply(reacted, 1.5, "🔥"),
+        reply(reacted, 7.5, "bump", "U_ASKER"),
+        plusOned,
+        reply(plusOned, 2.5, "+1"),
+      ]),
+    ).toEqual(["Got a +1?", "Got a 🔥 and a late bump?"]);
   });
 });

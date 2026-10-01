@@ -7,6 +7,15 @@ function stripSlackMarkup(text: string): string {
   return text.replace(/<[^>]*>/g, " ");
 }
 
+// Lowercase and drop emoji/punctuation so "congrats!!" and "🔥" compare cleanly.
+function normalize(text: string): string {
+  return stripSlackMarkup(text)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s+']/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Things people say with a "?" that aren't asking for anything.
 const RHETORICAL = [
   /\?!/, // "Who else is hyped for Thursday?!"
@@ -28,28 +37,24 @@ export function isQuestion(text: string): boolean {
   return ASKING_WITHOUT_QUESTION_MARK.some((re) => re.test(t));
 }
 
-// Replies from other people that don't answer anything: "me too"s and reactions.
-const NOT_AN_ANSWER = new Set([
-  "same", "same here", "same question", "me too", "following", "subscribing", "bump",
+// Replies saying "I need this answered too": a me-too from someone else
+// ("+1, same question") or the asker bumping their own post ("anyone? still stuck").
+const ME_TOO = new Set(["same", "same here", "same question", "me too", "following", "subscribing"]);
+const BUMP = /^(bump|anyone|any ideas|any help|still stuck|still need)\b/;
+
+export function isMeTooOrBump(text: string): boolean {
+  const t = normalize(text);
+  return t.startsWith("+1") || ME_TOO.has(t) || BUMP.test(t);
+}
+
+// Friendly replies that don't answer anything.
+const REACTIONS = new Set([
   "thanks", "thank you", "saving this", "love this", "great idea", "this is awesome",
   "congrats", "nice", "this is super helpful",
 ]);
 
 export function isRealAnswer(text: string): boolean {
-  // Lowercase and drop emoji/punctuation so "congrats!!" and "🔥" normalise cleanly.
-  const t = stripSlackMarkup(text)
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s+']/gu, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const t = normalize(text);
   if (t === "") return false; // emoji-only
-  if (t.startsWith("+1")) return false; // "+1", "+1, same question"
-  return !NOT_AN_ANSWER.has(t);
-}
-
-// The asker saying they solved it themselves: "nvm figured it out, TTL hadn't expired".
-const SELF_RESOLVED = /\b(nvm|never ?mind|figured it out|solved it|got it working|sorted it out)\b/i;
-
-export function isSelfResolved(text: string): boolean {
-  return SELF_RESOLVED.test(text);
+  return !REACTIONS.has(t) && !isMeTooOrBump(text);
 }

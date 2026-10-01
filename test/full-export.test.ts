@@ -28,13 +28,27 @@ describe("buildDigest on data/messages.json", () => {
     "Is there a way to schedule posts in advance?", // only a bot auto-reply
     "Is there a way to see who RSVP'd but didn't attend?", // only "+1, same question"
     "Does the analytics export include DMs?", // answered after the week ended
+    "Why won't my custom domain verify? DNS looks right", // asker solved it, admin may still want to see it
   ])("lists %s", (text) => expect(unansweredText).toContain(text));
 
   it.each([
-    "Why won't my custom domain verify? DNS looks right", // asker solved it
     "Will this be recorded?", // asked inside the AMA thread
     "Is the API rate limit per workspace?", // posted exactly at week end
     "Can you believe it's almost Q4 already?", // rhetorical
     "How are folks handling SSO with Okta?", // answered
   ])("does not list %s", (text) => expect(unansweredText).not.toContain(text));
+
+  it("puts the questions people are waiting on first", () => {
+    expect(unansweredText.slice(0, 7)).toEqual([
+      "How do I bulk-import members from a CSV?", // "bump" + "anyone? still stuck on this"
+      // one me-too or bump each, oldest first
+      "Are polls anonymous by default?", // "bump" (the Sept 23 14:21 repost)
+      "How do you handle time zones for live events with a global community?", // "any ideas?"
+      "Who owns community at your company, marketing or CS?", // "bump" (the Sept 25 repost)
+      "Is there a way to see who RSVP'd but didn't attend?", // "+1, same question"
+      "Can I restrict a channel to members of a specific group?", // "bump"
+      // then the rest, oldest first
+      "What do you use for event registration, Luma or something else?",
+    ]);
+  });
 });
