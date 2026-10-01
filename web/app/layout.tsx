@@ -6,8 +6,9 @@ import "./globals.css";
 // Downloaded at build time and served from this app, so visitors make no request to Google.
 const hanken = Hanken_Grotesk({ subsets: ["latin"], display: "swap", variable: "--font-hanken" });
 
-// The production address; Vercel sets VERCEL_PROJECT_PRODUCTION_URL at build time.
-const SITE_URL = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "interview-gold-eight.vercel.app"}`;
+// The address people share. Fixed rather than read from Vercel, because the project has more than one
+// production address and link previews should always point at this one.
+const SITE_URL = "https://tightknit-digest.vercel.app";
 const TITLE = "Monday digest";
 const DESCRIPTION =
   "The weekly digest a Slack community admin reads on Monday: the busiest threads, the questions still waiting for an answer, and an AI summary.";
