@@ -4,7 +4,7 @@
 
 `buildDigest` turns a week of Slack channel messages into the digest a community admin reads on Monday: the three most active threads and the questions nobody has answered yet.
 
-**Live demo:** [interview-gold-eight.vercel.app](https://interview-gold-eight.vercel.app) · **Video walkthrough:** _(link to come)_
+**Live demo:** [tightknit-digest.vercel.app](https://tightknit-digest.vercel.app/) · **Video walkthrough:** _(link to come)_
 
 **Run the tests**
 
@@ -25,7 +25,7 @@ This is the Tightknit co-op interview exercise. **The instructions are in [this 
 
 ## Setup
 
-Requires Node 20 or later.
+Requires Node 22.12 or later (for Vitest 5).
 
 ```sh
 npm install
