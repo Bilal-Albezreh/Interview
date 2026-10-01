@@ -1,6 +1,8 @@
 # Tightknit Co-op Interview Exercise
 
-**The exercise instructions are in [this Google Doc](https://docs.google.com/document/d/13_4C8eQFjhEEvfY8hTlp4ikYebg9yp0Dypb3UpRSj4o/edit?tab=t.0).** Read them first. This README covers setup and how `buildDigest` works.
+[![CI](https://github.com/Bilal-Albezreh/Interview/actions/workflows/ci.yml/badge.svg)](https://github.com/Bilal-Albezreh/Interview/actions/workflows/ci.yml)
+
+**The exercise instructions are in [this Google Doc](https://docs.google.com/document/d/13_4C8eQFjhEEvfY8hTlp4ikYebg9yp0Dypb3UpRSj4o/edit?tab=t.0).** Read them first. This README covers setup, how `buildDigest` works, and the demo app in `web/`.
 
 ## Setup
 
@@ -14,6 +16,7 @@ npm install
 
 ```sh
 npm test          # runs the tests in test/
+npm run typecheck
 npm run digest    # runs buildDigest on data/messages.json and prints the result
 npm run digest -- data/sample-messages.json
 ```
@@ -33,6 +36,9 @@ npm run digest -- data/sample-messages.json
 | `test/digest.test.ts` | One test per rule and edge case, on small hand-built messages |
 | `test/classify.test.ts` | The word-list rules, mostly with real messages from the export |
 | `test/full-export.test.ts` | Spot checks on `data/messages.json`, expected values worked out by reading the data |
+| `vitest.config.ts` | Keeps `npm test` to `test/`; the demo app has its own tests |
+| `web/` | Demo app (Next.js), see [Demo app](#demo-app) |
+| `.github/workflows/ci.yml` | CI on every push: tests and typecheck here, plus test, typecheck and build for `web/` |
 
 ## How `buildDigest` works
 
@@ -81,6 +87,41 @@ The rules are English-only and were tuned on this one export. Each example below
 - **Other languages** only work through the `?`: "¿Alguien usa Circle?" is caught, "Alguien usa Circle" isn't.
 
 Next step: keep the cheap rules for the clear cases and send borderline messages to an LLM classifier (the "generate with AI" stretch goal). The rules all live in `src/classify.ts` with a test for each example, so extending them is one line plus a test.
+
+## Demo app
+
+`web/` is a small Next.js app that shows the digest. It's kept separate from the exercise: it imports `buildDigest` from `src/` and the exports from `data/`, and changes neither.
+
+- **Channel exports:** the digest for the sample and the full export. `buildDigest` runs on the server when the site is built, so only the digests reach the browser.
+- **Write summary with AI:** asks a server route to turn the digest into a short Monday note for the admin, using OpenAI.
+- **Self-check:** shows PASS or FAIL for the sample output against `sample-digest.json`.
+- **Try your own data:** paste or upload a messages JSON (up to 2 MB), pick the week start, and build the digest. It's validated with zod and runs entirely in the browser. There are presets for the sample, the full export and an empty channel. There's no AI summary for custom data.
+
+### Run it locally
+
+```sh
+cd web
+npm install
+cp .env.example .env.local   # then add your OPENAI_API_KEY
+npm run dev                  # http://localhost:3000
+npm test                     # web tests
+```
+
+The page works without a key; only the AI button needs one, and without it the button explains what's missing.
+
+### Deploy to Vercel
+
+1. Import the repo in Vercel and set **Root Directory** to `web`. Keep "Include files outside the root directory in the Build Step" on (the default), since the app imports `../src` and `../data`.
+2. Add the environment variable `OPENAI_API_KEY`. `OPENAI_MODEL` is optional and defaults to `gpt-5.4-mini`.
+3. Deploy.
+
+### How the AI route stays safe
+
+- **The key stays on the server.** It's read from `OPENAI_API_KEY` in a module marked `server-only`, so the build fails if anything imports it into browser code.
+- **The route takes a dataset name, never text.** It accepts only `{"dataset": "sample"}` or `{"dataset": "full"}` and rebuilds the digest itself, so nobody can send their own prompt through the key.
+- **OpenAI gets only the digest's text and counts.** Raw messages are never sent, and Slack user IDs and timestamps are dropped. The prompt tells the model to treat the texts as quoted data, not instructions. The reply is shown as plain text, never HTML.
+- **Rate limit:** 5 requests per minute per IP. The counts are kept in server memory, so on Vercel each instance counts separately and a cold start resets them. That's fine for a demo; production would use shared storage (Vercel KV, Upstash) or a Vercel Firewall rule.
+- **Clear errors:** a bad body, the rate limit, a missing key, a rejected key, OpenAI being busy or out of quota, and a timeout (30 s) each get their own message. Details stay in the server log.
 
 ## Stretch: a week of data for 5,000 communities without hitting rate limits
 
