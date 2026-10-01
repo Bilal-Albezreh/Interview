@@ -1,6 +1,7 @@
 import "server-only";
 import { isDeepStrictEqual } from "node:util";
 import { buildDigest } from "@core/digest";
+import { findDuplicateQuestions, type DuplicateQuestion } from "@core/duplicates";
 import type { Digest, SlackMessage } from "@core/types";
 import fullMessages from "@data/messages.json";
 import sampleDigest from "@data/sample-digest.json";
@@ -17,12 +18,16 @@ export function digestFor(dataset: DatasetName): Digest {
   return buildDigest(MESSAGES[dataset], WEEK_START);
 }
 
-export type Preset = { digest: Digest; nudges: Record<string, number> };
+export type Preset = { digest: Digest; nudges: Record<string, number>; duplicates: DuplicateQuestion[] };
 
-/** A preset's digest plus how many nudges each unanswered question got, for the page. */
+/** A preset's digest, how many nudges each unanswered question got, and questions asked more than once. */
 export function presetFor(dataset: DatasetName): Preset {
   const digest = digestFor(dataset);
-  return { digest, nudges: nudgeCounts(MESSAGES[dataset], WEEK_START, digest) };
+  return {
+    digest,
+    nudges: nudgeCounts(MESSAGES[dataset], WEEK_START, digest),
+    duplicates: findDuplicateQuestions(MESSAGES[dataset], WEEK_START),
+  };
 }
 
 export type SelfCheckResult = { pass: boolean; expected: Digest; actual: Digest };

@@ -2,11 +2,13 @@
 
 import { useMemo, useState, type ChangeEvent } from "react";
 import { buildDigest } from "@core/digest";
+import { findDuplicateQuestions, type DuplicateQuestion } from "@core/duplicates";
 import type { Digest } from "@core/types";
 import { WEEK_START_ISO } from "@/lib/datasets";
 import { formatWeek } from "@/lib/format";
 import { nudgeCounts } from "@/lib/nudges";
 import { formatSize, MAX_INPUT_BYTES, parseMessages } from "@/lib/parse-messages";
+import { DuplicateGroups } from "./duplicate-groups";
 import { TopThreads } from "./top-threads";
 import { WaitingList } from "./waiting-list";
 
@@ -18,7 +20,13 @@ const PRESETS: { label: string; load: () => Promise<unknown[]> }[] = [
 ];
 
 type Result =
-  | { digest: Digest; nudges: Record<string, number>; messageCount: number; weekStart: Date }
+  | {
+      digest: Digest;
+      nudges: Record<string, number>;
+      duplicates: DuplicateQuestion[];
+      messageCount: number;
+      weekStart: Date;
+    }
   | { errors: string[] };
 
 export function TryYourOwn() {
@@ -37,6 +45,7 @@ export function TryYourOwn() {
     setResult({
       digest,
       nudges: nudgeCounts(parsed.messages, start, digest),
+      duplicates: findDuplicateQuestions(parsed.messages, start),
       messageCount: parsed.messages.length,
       weekStart: start,
     });
@@ -118,6 +127,7 @@ export function TryYourOwn() {
           <TopThreads threads={result.digest.topThreads} />
           <h3>Waiting for an answer</h3>
           <WaitingList questions={result.digest.unanswered} nudges={result.nudges} />
+          <DuplicateGroups groups={result.duplicates} unanswered={result.digest.unanswered} />
         </div>
       )}
     </div>

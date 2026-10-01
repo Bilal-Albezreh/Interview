@@ -1,21 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import type { DuplicateQuestion } from "@core/duplicates";
 import type { Digest } from "@core/types";
 import { DATASET_NAMES, WEEK_START, type DatasetName } from "@/lib/datasets";
 import { formatWeekOf } from "@/lib/format";
+import { DuplicateGroups } from "./duplicate-groups";
 import { SummarySection } from "./summary-section";
 import { TopThreads } from "./top-threads";
 import { WaitingList } from "./waiting-list";
 
-type Preset = { digest: Digest; nudges: Record<string, number> };
+type Preset = { digest: Digest; nudges: Record<string, number>; duplicates: DuplicateQuestion[] };
 
 const LABELS: Record<DatasetName, string> = { sample: "Sample", full: "Full export" };
 
 export function MondayDigest({ presets }: { presets: Record<DatasetName, Preset> }) {
   const [dataset, setDataset] = useState<DatasetName>("full");
   const [firstLoad, setFirstLoad] = useState(true); // stitches draw in once, not on every switch
-  const { digest, nudges } = presets[dataset];
+  const { digest, nudges, duplicates } = presets[dataset];
 
   function choose(name: DatasetName) {
     setFirstLoad(false);
@@ -52,6 +54,7 @@ export function MondayDigest({ presets }: { presets: Record<DatasetName, Preset>
           Most nudged first. A nudge is a &ldquo;+1, same question&rdquo; reply, or the asker bumping their own post.
         </p>
         <WaitingList questions={digest.unanswered} nudges={nudges} />
+        <DuplicateGroups groups={duplicates} unanswered={digest.unanswered} />
       </section>
 
       <SummarySection dataset={dataset} digest={digest} nudges={nudges} />

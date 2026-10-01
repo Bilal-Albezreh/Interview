@@ -245,6 +245,48 @@ button.more {
   text-underline-offset: 3px;
 }
 
+/* Asked more than once: a double stitch, mustard while any copy still waits */
+
+.duplicates {
+  margin-top: 30px;
+}
+
+.duplicates h3 {
+  font-size: 16.5px;
+  font-weight: 600;
+}
+
+.duplicates ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.duplicate {
+  border-left: 4px double var(--muted);
+  padding: 1px 0 1px 13px;
+}
+
+.duplicate.some-waiting {
+  border-left-color: var(--mustard);
+}
+
+.duplicate + .duplicate {
+  margin-top: 14px;
+}
+
+.askers {
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.askers .num {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+
 .nudges .num {
   color: var(--ink);
   font-size: 15px;

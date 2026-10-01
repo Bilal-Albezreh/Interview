@@ -27,6 +27,7 @@ npm run digest -- data/sample-messages.json
 | --- | --- |
 | `src/digest.ts` | `buildDigest` |
 | `src/classify.ts` | Word-list rules: is it a question, a real answer, a me-too or bump |
+| `src/duplicates.ts` | `findDuplicateQuestions`: questions several people asked this week |
 | `src/types.ts` | `SlackMessage` and `Digest` types |
 | `src/run.ts` | Script behind `npm run digest` |
 | `data/sample-messages.json` | 11 messages, so you can get a feel for the data |
@@ -36,6 +37,7 @@ npm run digest -- data/sample-messages.json
 | `test/digest.test.ts` | One test per rule and edge case, on small hand-built messages |
 | `test/classify.test.ts` | The word-list rules, mostly with real messages from the export |
 | `test/full-export.test.ts` | Spot checks on `data/messages.json`, expected values worked out by reading the data |
+| `test/duplicates.test.ts` | Duplicate questions: the real repeats in the export, plus near-misses that must stay apart |
 | `vitest.config.ts` | Keeps `npm test` to `test/`; the demo app has its own tests |
 | `web/` | Demo app (Next.js), see [Demo app](#demo-app) |
 | `.github/workflows/ci.yml` | CI on every push: tests and typecheck here, plus test, typecheck and build for `web/` |
@@ -96,7 +98,7 @@ The page is the Monday digest an admin would receive, laid out as a calm letter:
 
 - **Header:** "Monday digest", the week, and a switch between the sample and the full export. `buildDigest` runs on the server when the site is built, so only the digests reach the browser.
 - **Top threads:** each with its replies this week and a teal running stitch whose length matches. The stitches draw in once on first load (not with reduced motion).
-- **Waiting for an answer:** the unanswered questions, most nudged first, with their nudge count ("+1, same question" replies and bumps). The first 8 show; the rest are one click away. `buildDigest` sorts by this count but doesn't return it, so `web/lib/nudges.ts` recounts it with the same rule, and a test checks the two agree.
+- **Waiting for an answer:** the unanswered questions, most nudged first, with their nudge count ("+1, same question" replies and bumps). The first 8 show; the rest are one click away. `buildDigest` sorts by this count but doesn't return it, so `web/lib/nudges.ts` recounts it with the same rule, and a test checks the two agree. Underneath, "Asked more than once" lists the duplicate groups, with how many of each group's posts are still waiting.
 - **Summary:** the AI summary shown as a Slack-style message, plus "Copy as Block Kit JSON" (header, section and divider blocks, within Slack's size limits, with `&`, `<` and `>` escaped so message text can't ping the channel).
 - **Test it yourself:** paste or upload a messages JSON (up to 2 MB), pick the week start, and build the digest. It's validated with zod and runs entirely in the browser, with presets for the sample, the full export and an empty channel, and no AI summary. Below it, the self-check shows Pass or Fail for the sample against `sample-digest.json`.
 
@@ -125,6 +127,28 @@ The page works without a key; only the AI button needs one, and without it the b
 - **OpenAI gets only the digest's text and counts.** Raw messages are never sent, and Slack user IDs and timestamps are dropped. The prompt tells the model to treat the texts as quoted data, not instructions. The reply is shown as plain text, never HTML.
 - **Rate limit:** 5 requests per minute per IP. The counts are kept in server memory, so on Vercel each instance counts separately and a cold start resets them. That's fine for a demo; production would use shared storage (Vercel KV, Upstash) or a Vercel Firewall rule.
 - **Clear errors:** a bad body, the rate limit, a missing key, a rejected key, OpenAI being busy or out of quota, and a timeout (30 s) each get their own message. Details stay in the server log.
+
+## Stretch: duplicate questions
+
+`findDuplicateQuestions(messages, weekStart)` in `src/duplicates.ts` is a separate function, so `buildDigest` and the `Digest` type are unchanged. It returns each group of questions asked by **two or more different people** this week:
+
+```ts
+{ text: string; askers: string[]; ts: string[] } // first wording, distinct askers in order, every ts oldest first
+```
+
+**How it matches.** It looks at the same questions `buildDigest` does: top-level posts from people, posted this week.
+1. **Normalise:** lowercase, drop Slack links and mentions, punctuation and filler words ("is there a way to", "does anyone know", "how do you", …). What's left is what the question is about: "Is there a way to schedule posts in advance?" becomes {schedule, posts, advance}.
+2. **Group:** oldest first, each question joins a group if it shares at least 60% of its words with that group's *first* question; otherwise it starts its own. Comparing with the first question, not the latest, stops a group drifting from A to B to C.
+3. **Report:** only groups with two or more different askers, most-asked first. One person reposting their own question isn't a duplicate.
+
+**On this export** it finds the 8 questions asked more than once this week. "Who owns community at your company, marketing or CS?" was asked by 3 people. Copies posted outside the week are left out (for example, "Are polls anonymous by default?" was also asked on Sep 14).
+
+**Near-misses it keeps apart**, each covered by a test:
+- "Curious how people handle offboarding members…" vs "How do you handle members who only ever post self-promotion?": the same topic words, a different question (25% overlap).
+- "Is there a way to schedule posts…" vs "Is there a way to see who RSVP'd…": 33% of their raw words match, all filler; 0% of their content words do.
+- "How do I export members to a CSV?" vs "How do I import members from a CSV?": 50% overlap, under the bar. Word overlap can't tell export from import, so the threshold has to.
+
+**Limits.** This only catches reposts and light rewording. It has no stemming or synonyms, so "How do I add members in bulk?" and "How do I bulk-import members from a CSV?" stay apart. Embeddings, or an AI pass over the week's questions, would catch rephrased duplicates like that. Either way, a person should confirm a merge before members are pointed to someone else's answer, because a wrong merge sends someone to an answer for a different question.
 
 ## Stretch: a week of data for 5,000 communities without hitting rate limits
 
