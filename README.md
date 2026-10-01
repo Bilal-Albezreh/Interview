@@ -111,7 +111,7 @@ The page works without a key; only the AI button needs one, and without it the b
 
 ### Deploy to Vercel
 
-1. Import the repo in Vercel and set **Root Directory** to `web`. Keep "Include files outside the root directory in the Build Step" on (the default), since the app imports `../src` and `../data`.
+1. Import the repo in Vercel and set **Root Directory** to `web`. Keep "Include files outside the root directory in the Build Step" on (the default), since the app imports `../src` and `../data`. `web/vercel.json` sets the framework to Next.js, so the Framework Preset in the dashboard doesn't matter (if it's "Other", the build fails with "No Output Directory named "public" found").
 2. Add the environment variable `OPENAI_API_KEY`. `OPENAI_MODEL` is optional and defaults to `gpt-5.4-mini`.
 3. Deploy.
 
