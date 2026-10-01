@@ -1,8 +1,27 @@
-# Tightknit Co-op Interview Exercise
+# Monday digest
 
 [![CI](https://github.com/Bilal-Albezreh/Interview/actions/workflows/ci.yml/badge.svg)](https://github.com/Bilal-Albezreh/Interview/actions/workflows/ci.yml)
 
-**The exercise instructions are in [this Google Doc](https://docs.google.com/document/d/13_4C8eQFjhEEvfY8hTlp4ikYebg9yp0Dypb3UpRSj4o/edit?tab=t.0).** Read them first. This README covers setup, how `buildDigest` works, and the demo app in `web/`.
+`buildDigest` turns a week of Slack channel messages into the digest a community admin reads on Monday: the three most active threads and the questions nobody has answered yet.
+
+**Live demo:** [interview-gold-eight.vercel.app](https://interview-gold-eight.vercel.app) · **Video walkthrough:** _(link to come)_
+
+**Run the tests**
+
+```sh
+npm install && npm test                 # buildDigest and the analysis functions (src/, test/)
+cd web && npm install && npm test       # the demo app (web/)
+```
+
+**Three key decisions**
+
+- **Active means replies posted this week,** counted from reply timestamps rather than `reply_count`, which is an all-time total.
+- **Answered means a real answer from someone other than the asker before the week ends;** bots, "+1"s, reactions and the asker's own replies don't count.
+- **Waiting questions are ordered by demand:** most "+1, same question" replies and bumps first, then oldest first.
+
+---
+
+This is the Tightknit co-op interview exercise. **The instructions are in [this Google Doc](https://docs.google.com/document/d/13_4C8eQFjhEEvfY8hTlp4ikYebg9yp0Dypb3UpRSj4o/edit?tab=t.0).** The rest of this README covers setup, how `buildDigest` works, and the demo app in `web/`.
 
 ## Setup
 
