@@ -1,35 +1,31 @@
-import { WEEK_START } from "@/lib/datasets";
-import { digestFor, sampleSelfCheck } from "@/lib/digests";
-import { formatWeek } from "@/lib/format";
-import { PresetDigests } from "./preset-digests";
+import { presetFor, sampleSelfCheck } from "@/lib/digests";
+import { MondayDigest } from "./monday-digest";
 import { SelfCheckPanel } from "./self-check-panel";
 import { TryYourOwn } from "./try-your-own";
 
+const REPO_URL = "https://github.com/Bilal-Albezreh/Interview";
+
 // Runs on the server at build time: only the digests reach the browser, not the exports.
 export default function Home() {
-  const digests = { sample: digestFor("sample"), full: digestFor("full") };
+  const presets = { sample: presetFor("sample"), full: presetFor("full") };
 
   return (
-    <main>
-      <header>
-        <h1>Weekly Slack digest</h1>
-        <p className="lede">
-          Top threads and unanswered questions for the week of {formatWeek(WEEK_START)}, built by{" "}
-          <code>buildDigest</code>.
+    <main className="page">
+      <MondayDigest presets={presets} />
+
+      <section className="workbench" aria-labelledby="test-heading">
+        <h2 id="test-heading">Test it yourself</h2>
+        <p className="note">
+          Paste or upload a messages export, pick the week, and build its digest. It runs in your browser; nothing is
+          sent anywhere.
         </p>
-      </header>
+        <TryYourOwn />
+        <SelfCheckPanel result={sampleSelfCheck()} />
+      </section>
 
-      <SelfCheckPanel result={sampleSelfCheck()} />
-
-      <h2>Channel exports</h2>
-      <PresetDigests digests={digests} />
-
-      <h2>Try your own data</h2>
-      <p className="lede">
-        Paste or upload a messages JSON, pick the week, and build the digest. It runs in your browser; nothing is sent
-        anywhere.
-      </p>
-      <TryYourOwn />
+      <footer className="footer">
+        Built by Bilal for the Tightknit co-op exercise. <a href={REPO_URL}>Source on GitHub</a>
+      </footer>
     </main>
   );
 }
